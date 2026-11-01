@@ -1,0 +1,160 @@
+version: "3"
+
+vars:
+  FRONTEND_DIR: "frontend"
+  PYTHON_VERSION:
+    sh: tr -d '[:space:]' < "{{.ROOT_DIR}}/.python-version"
+  NODE_VERSION: "22"
+  NVM_VERSION: v0.40.1
+  NVM_DIR: "{{.HOME}}/.nvm"
+
+tasks:
+  default:
+    desc: Show setup tasks
+    cmds:
+      - task --taskfile "{{.TASKFILE_DIR}}/setup.yml" --list --sort alphanumeric
+    silent: true
+
+  all:
+    desc: Install local tools, completion, and dependencies
+    cmds:
+      - task: tools
+      - task: completion
+      - task: local
+
+  tools:
+    desc: Install uv and nvm for the current operating system
+    cmds:
+      - cmd: |
+          set -e
+          if ! command -v brew >/dev/null 2>&1; then
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          fi
+          if ! command -v brew >/dev/null 2>&1; then
+            if [ -x /opt/homebrew/bin/brew ]; then
+              eval "$(/opt/homebrew/bin/brew shellenv)"
+            elif [ -x /usr/local/bin/brew ]; then
+              eval "$(/usr/local/bin/brew shellenv)"
+            fi
+          fi
+          brew list uv >/dev/null 2>&1 || brew install uv
+          brew list nvm >/dev/null 2>&1 || brew install nvm
+          mkdir -p "{{.NVM_DIR}}"
+        platforms: [darwin]
+      - cmd: |
+          set -e
+          if ! command -v curl >/dev/null 2>&1; then
+            printf '%s\n' "curl is required before setup can install uv or nvm." >&2
+            exit 1
+          fi
+          if ! command -v uv >/dev/null 2>&1; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+          if [ ! -s "{{.NVM_DIR}}/nvm.sh" ]; then
+            PROFILE=/dev/null curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/{{.NVM_VERSION}}/install.sh | bash
+          fi
+        platforms: [linux]
+
+  completion:
+    desc: Enable Task tab completion for the current shell
+    silent: true
+    cmds:
+      - |
+          set -e
+          shell_name="${SHELL##*/}"
+          case "$shell_name" in
+            zsh)
+              rc_file="${ZDOTDIR:-$HOME}/.zshrc"
+              completion_line='eval "$(task --completion zsh)"'
+              ;;
+            bash)
+              rc_file="$HOME/.bashrc"
+              completion_line='eval "$(task --completion bash)"'
+              ;;
+            fish)
+              rc_file="$HOME/.config/fish/config.fish"
+              completion_line='task --completion fish | source'
+              ;;
+            *)
+              printf 'Task completion supports bash, zsh, fish, and PowerShell. Current shell: %s\n' "$shell_name"
+              printf 'Run: task --completion <shell>\n'
+              exit 0
+              ;;
+          esac
+
+          mkdir -p "$(dirname "$rc_file")"
+          touch "$rc_file"
+          if grep -Fqx "$completion_line" "$rc_file"; then
+            printf 'Task completion is already configured in %s\n' "$rc_file"
+          else
+            printf '\n# Go Task shell completion\n%s\n' "$completion_line" >> "$rc_file"
+            printf 'Added Task completion to %s\n' "$rc_file"
+          fi
+            printf 'Open a new shell or source %s to activate it.\n' "$rc_file"
+
+  local:
+    desc: Install Python and frontend dependencies
+    cmds:
+      - task: python
+      - task: frontend
+
+  sync:
+    desc: Synchronize Python and frontend dependencies
+    cmds:
+      - task: python:deps
+      - task: frontend:deps
+
+  python:
+    desc: Create the Python environment and install dependencies
+    cmds:
+      - task: python:venv
+      - task: python:deps
+
+  python:venv:
+    desc: Create a uv environment with the configured Python version
+    cmds:
+      - uv python install {{.PYTHON_VERSION}}
+      - uv venv --python {{.PYTHON_VERSION}}
+
+  python:deps:
+    desc: Install Python dependencies and pre-commit hooks
+    cmds:
+      - uv sync --locked --group dev --all-packages
+      - uv run pre-commit install
+
+  frontend:
+    desc: Install Node.js and frontend dependencies
+    cmds:
+      - task: frontend:node
+      - task: frontend:deps
+
+  frontend:node:
+    desc: Install and select the configured Node.js version
+    cmds:
+      - |
+          set -e
+          if [ -s "{{.NVM_DIR}}/nvm.sh" ]; then
+            . "{{.NVM_DIR}}/nvm.sh"
+          elif command -v brew >/dev/null 2>&1 && [ -s "$(brew --prefix nvm)/nvm.sh" ]; then
+            . "$(brew --prefix nvm)/nvm.sh"
+          else
+            printf '%s\n' "nvm is not installed. Run 'task setup:tools' first." >&2
+            exit 1
+          fi
+          nvm install {{.NODE_VERSION}}
+          nvm use {{.NODE_VERSION}}
+
+  frontend:deps:
+    desc: Install frontend npm dependencies
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - |
+          set -e
+          if [ -s "{{.NVM_DIR}}/nvm.sh" ]; then
+            . "{{.NVM_DIR}}/nvm.sh"
+            nvm use {{.NODE_VERSION}}
+          elif command -v brew >/dev/null 2>&1 && [ -s "$(brew --prefix nvm)/nvm.sh" ]; then
+            . "$(brew --prefix nvm)/nvm.sh"
+            nvm use {{.NODE_VERSION}}
+          fi
+          npm ci

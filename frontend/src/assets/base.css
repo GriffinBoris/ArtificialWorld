@@ -1,0 +1,104 @@
+@import "tailwindcss";
+@config "../../tailwind.config.js";
+
+:root {
+  --color-background: 255 255 255;
+  --color-surface: 255 255 255;
+  --color-surface-muted: 243 244 246;
+  --color-body: 17 24 39;
+  --color-secondary: 107 114 128;
+  --color-line: 229 231 235;
+  --color-primary: 17 24 39;
+  --color-primary-contrast: 255 255 255;
+  --color-focus-ring: 17 24 39;
+  --color-success: 34 197 94;
+  --color-warning: 217 119 6;
+  --color-error: 220 38 38;
+  --color-info: 8 145 178;
+
+  --font-size-base: 0.875rem;
+  --line-height-base: 1.5rem;
+  --font-size-muted: 0.75rem;
+  --line-height-muted: 1rem;
+  --font-size-control: 0.875rem;
+  --line-height-control: 1.25rem;
+  --font-size-table-header: 0.875rem;
+  --line-height-table-header: 1.25rem;
+  --font-size-heading-sm: 1rem;
+  --line-height-heading-sm: 1.5rem;
+  --font-size-heading-lg: 1.625rem;
+  --line-height-heading-lg: 2rem;
+  --font-size-eyebrow: 0.6875rem;
+  --line-height-eyebrow: 1rem;
+  --tracking-eyebrow: 0.12em;
+  --font-size-metric: 1.5rem;
+  --line-height-metric: 1.875rem;
+}
+
+html[data-theme="dark"] {
+  --color-background: 9 12 20;
+  --color-surface: 15 23 42;
+  --color-surface-muted: 30 41 59;
+  --color-body: 226 232 240;
+  --color-secondary: 148 163 184;
+  --color-line: 51 65 85;
+  --color-primary: 255 255 255;
+  --color-primary-contrast: 9 12 20;
+  --color-focus-ring: 255 255 255;
+  --color-success: 52 211 153;
+  --color-warning: 251 191 36;
+  --color-error: 248 113 113;
+  --color-info: 34 211 238;
+}
+
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: rgb(var(--color-line));
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #app {
+    height: 100%;
+    width: 100%;
+  }
+
+  html {
+    background-color: rgb(var(--color-background));
+  }
+
+  body {
+    @apply text-base-body m-0 h-dvh overflow-hidden font-sans antialiased;
+    background-color: rgb(var(--color-background));
+    color: rgb(var(--color-body));
+  }
+
+  a {
+    @apply text-inherit no-underline;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  ::selection {
+    background: rgb(var(--color-primary) / 0.18);
+    color: inherit;
+  }
+}

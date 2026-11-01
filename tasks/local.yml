@@ -1,0 +1,229 @@
+version: "3"
+
+vars:
+  BACKEND_DIR: "backend"
+  FRONTEND_DIR: "frontend"
+  DJANGO_SETTINGS: core.settings.dev_local
+
+tasks:
+  default:
+    desc: Show local tasks
+    cmds:
+      - task --taskfile "{{.TASKFILE_DIR}}/local.yml" --list --sort alphanumeric
+    silent: true
+
+  setup:
+    desc: Install local dependencies
+    cmds:
+      - task: :setup:local
+
+  dev:
+    desc: Run Django, Vue, and the local simulation worker
+    deps:
+      - task: world:runner
+      - task: backend:server
+      - task: frontend:dev
+
+  world:runner:
+    desc: Run the local simulation worker (scripted by default)
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - uv run python manage.py run_worlds --settings={{.DJANGO_SETTINGS}}
+
+  agent:login:
+    desc: Authorize this application with a ChatGPT subscription (no inference)
+    dir: "{{.BACKEND_DIR}}"
+    interactive: true
+    cmds:
+      - uv run python manage.py agent_login --settings={{.DJANGO_SETTINGS}}
+
+  check:
+    desc: Run all local checks
+    cmds:
+      - task: test
+      - task: lint
+      - task: frontend:typecheck
+
+  test:
+    desc: Run backend tests locally
+    cmds:
+      - task: backend:test
+
+  test:coverage:
+    desc: Run backend tests with coverage locally
+    cmds:
+      - task: backend:test:coverage
+
+  lint:
+    desc: Run backend and frontend lint checks locally
+    cmds:
+      - task: backend:lint
+      - task: frontend:lint
+
+  format:
+    desc: Format backend and frontend files locally
+    cmds:
+      - task: backend:format
+      - task: frontend:format
+
+  build:
+    desc: Build frontend assets locally
+    cmds:
+      - task: frontend:build
+
+  deps:check:
+    desc: Check Python and npm dependencies for upgrades
+    cmds:
+      - task: backend:deps:check
+      - task: frontend:deps:check
+
+  backend:test:
+    desc: Run backend tests locally
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - uv run --group dev pytest .
+
+  backend:test:coverage:
+    desc: Run backend tests with coverage locally
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - uv run --group dev coverage run -m pytest .
+      - uv run --group dev coverage report
+      - uv run --group dev coverage html
+
+  backend:lint:
+    desc: Run backend Ruff checks locally
+    cmds:
+      - uv run --group dev ruff check .
+
+  backend:format:
+    desc: Format backend files with Ruff locally
+    cmds:
+      - uv run --group dev ruff format .
+
+  backend:deps:check:
+    desc: Check Python dependencies for upgrades (uvbump required)
+    cmds:
+      - uvbump --kind uv --root . --upgrade --interactive --group-by package
+
+  backend:db:migrate:
+    desc: Apply Django migrations locally
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - uv run python manage.py migrate --settings={{.DJANGO_SETTINGS}}
+
+  backend:db:makemigrations:
+    desc: Create Django migrations locally
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - uv run python manage.py makemigrations --settings={{.DJANGO_SETTINGS}}
+
+  backend:db:makemigrations:app:
+    desc: Create Django migrations for one app locally (APP required)
+    dir: "{{.BACKEND_DIR}}"
+    requires:
+      vars: [APP]
+    cmds:
+      - uv run python manage.py makemigrations {{.APP}} --settings={{.DJANGO_SETTINGS}}
+
+  backend:db:delete-migrations:
+    desc: Delete project migration files except __init__.py
+    cmds:
+      - |
+          set -e
+          find backend \
+            -path '*/migrations/*.py' \
+            ! -name '__init__.py' \
+            -delete
+
+  backend:db:reset:
+    desc: Recreate and migrate the local SQLite database
+    prompt: This deletes the local SQLite database. Continue?
+    cmds:
+      - task: backend:db:drop
+      - task: backend:db:migrate
+
+  backend:db:drop:
+    desc: Delete the local SQLite database
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - rm -f db.sqlite3
+
+  backend:db:superuser:
+    desc: Create a Django superuser locally
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - uv run python manage.py createsuperuser --settings={{.DJANGO_SETTINGS}}
+
+  backend:server:
+    desc: Run the local Django development server
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - uv run python manage.py runserver 127.0.0.1:8000 --settings={{.DJANGO_SETTINGS}}
+
+  backend:shell:
+    desc: Open a local Django shell
+    dir: "{{.BACKEND_DIR}}"
+    cmds:
+      - uv run python manage.py shell --settings={{.DJANGO_SETTINGS}}
+
+  frontend:dev:
+    desc: Run the frontend development server
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run dev
+
+  frontend:assets:
+    desc: Rebuild the Blender models, animations, and portrait (BLENDER may override the executable)
+    vars:
+      BLENDER: '{{default "blender" .BLENDER}}'
+    cmds:
+      - '"{{.BLENDER}}" --background --factory-startup --python frontend/art/generate_world_assets.py -- --output frontend/public/assets/world --source frontend/art/world-assets.blend'
+
+  frontend:typecheck:
+    desc: Run frontend TypeScript checks
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run type-check
+
+  frontend:e2e:
+    desc: Run frontend Playwright tests with the deterministic Django server
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run e2e
+
+  frontend:e2e:install:
+    desc: Install the Chromium browser used by Playwright
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npx playwright install chromium
+
+  frontend:lint:
+    desc: Run frontend lint checks
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run lint
+
+  frontend:format:
+    desc: Format frontend files
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run format
+
+  frontend:build:
+    desc: Build frontend assets
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run build
+
+  frontend:preview:
+    desc: Preview built frontend assets
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - npm run preview
+
+  frontend:deps:check:
+    desc: Check npm dependencies for upgrades (uvbump required)
+    dir: "{{.FRONTEND_DIR}}"
+    cmds:
+      - uvbump --kind npm --root . --upgrade --interactive --group-by package
