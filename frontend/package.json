@@ -16,7 +16,7 @@
     "e2e:ui": "playwright test --ui"
   },
   "dependencies": {
-    "@lucide/vue": "1.16.0",
+    "@lucide/vue": "1.64.0",
     "axios": "1.21.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
