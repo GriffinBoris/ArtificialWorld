@@ -8,7 +8,7 @@ dependencies = [
     "django>=6.0.6",
     "django-cors-headers>=4.9.0",
     "djangorestframework>=3.17.1",
-    "drf-spectacular>=0.29.0",
+    "drf-spectacular>=0.30.0",
     "drf-standardized-errors>=0.16.0",
     "panda3d==1.10.16",
     "pydantic>=2.12,<3",
